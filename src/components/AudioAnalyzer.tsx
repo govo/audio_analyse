@@ -199,6 +199,12 @@ const AudioAnalyzer = () => {
     URL.revokeObjectURL(url);
   };
 
+  // 处理数据清除
+  const handleClear = () => {
+    setFrequencyData([]);
+    message.success('数据已清除');
+  };
+
   // 频响曲线解读说明
   const frequencyChartHelp = (
     <div>
@@ -314,13 +320,20 @@ const AudioAnalyzer = () => {
         )}
 
         {frequencyData.length > 0 && !analyzing && (
-          <Button 
-            type="primary" 
-            onClick={handleExport}
-            style={{ marginTop: 16 }}
-          >
-            导出数据
-          </Button>
+          <div style={{ marginTop: 16, display: 'flex', gap: '8px' }}>
+            <Button 
+              type="primary" 
+              onClick={handleExport}
+            >
+              导出数据
+            </Button>
+            <Button 
+              onClick={handleClear}
+              danger
+            >
+              清除数据
+            </Button>
+          </div>
         )}
       </Card>
       
