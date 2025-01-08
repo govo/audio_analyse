@@ -93,7 +93,7 @@ const FrequencyChart = ({ data }: Props) => {
           type: 'value',
           name: '幅度 (dB)',
           min: -40,
-          max: 0,
+          max: 20,
           axisLabel: {
             formatter: '{value}'
           }
@@ -230,7 +230,7 @@ const FrequencyChart = ({ data }: Props) => {
         nameLocation: 'center',
         nameGap: 30,
         min: -40,
-        max: 0,
+        max: 20,
         interval: 5,
         splitLine: {
           show: true,

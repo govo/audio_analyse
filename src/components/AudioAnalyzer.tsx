@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Upload, Button, Card, message, Tooltip } from 'antd';
+import { Upload, Button, Card, message, Tooltip, Modal } from 'antd';
 import { InboxOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd/es/upload/interface';
 import FrequencyChart from './FrequencyChart';
@@ -57,6 +57,9 @@ const AudioAnalyzer = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
+  const [helpModalTitle, setHelpModalTitle] = useState('');
+  const [helpModalContent, setHelpModalContent] = useState<React.ReactNode>(null);
 
   // 比较两个数据是否相同
   const isDataEqual = (data1: FrequencyData, data2: FrequencyData): boolean => {
@@ -202,6 +205,11 @@ const AudioAnalyzer = () => {
   // 处理数据清除
   const handleClear = () => {
     setFrequencyData([]);
+    setProgress(0);
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     message.success('数据已清除');
   };
 
@@ -230,40 +238,78 @@ const AudioAnalyzer = () => {
       <p><strong>动态范围分析图表解读：</strong></p>
       <p>频段动态范围分析（上图）：</p>
       <ul>
-        <li>柱状图：显示不同频段的动态范围大小</li>
-        <li>误差线：显示10%、50%、90%百分位数据</li>
-        <li>频段划分：
+        <li>分析方法：
           <ul>
-            <li>20-100Hz：超低频</li>
-            <li>100-500Hz：低频</li>
-            <li>500-2000Hz：中频</li>
-            <li>2000-8000Hz：高频</li>
-            <li>8000-20000Hz：超高频</li>
+            <li>使用1/3倍频程分析（ISO标准频段）</li>
+            <li>应用A加权滤波，符合人耳感知特性</li>
+            <li>Fast响应：125ms时间常数，适合瞬态分析</li>
+            <li>Slow响应：1000ms时间常数，适合稳态分析</li>
           </ul>
         </li>
-        <li>解读方式：
+        <li>图表元素：
           <ul>
-            <li>柱高表示动态范围大小</li>
-            <li>误差线表示音量分布范围</li>
-            <li>不同频段的对比反映音频特性</li>
+            <li>柱状图：显示Fast和Slow响应的动态范围</li>
+            <li>误差线：显示10%到90%百分位声压级范围</li>
+            <li>频段：从20Hz到20kHz的31个ISO标准频段</li>
+          </ul>
+        </li>
+        <li>专业指标：
+          <ul>
+            <li>真峰值电平（True Peak Level）：反映信号的绝对峰值，用于评估设备的过载余量</li>
+            <li>峰值因数（Crest Factor）：峰值与RMS的比值，反映设备处理瞬态信号的能力</li>
+            <li>总体动态范围：Fast和Slow响应的90%-10%百分位差值，表示设备的信噪比性能</li>
+          </ul>
+        </li>
+        <li>设备性能评估：
+          <ul>
+            <li>动态范围大小：较大的动态范围（{'>'}90dB）表示设备具有优秀的信噪比</li>
+            <li>频段均衡性：各频段动态范围均衡表示设备在全频段都有良好表现</li>
+            <li>Fast/Slow对比：Fast响应接近Slow响应表示设备的瞬态响应性能好</li>
+            <li>峰值处理：较高的峰值因数（{'>'}15dB）表示设备有充足的动态余量</li>
           </ul>
         </li>
       </ul>
       <p>短时动态范围（下图）：</p>
       <ul>
-        <li>X轴：时间（秒）</li>
-        <li>Y轴：幅度（dB）</li>
-        <li>曲线含义：表示音频随时间变化的动态范围</li>
-        <li>解读方式：
+        <li>分析参数：
           <ul>
-            <li>曲线波动反映音量变化</li>
-            <li>波峰表示响度最大值</li>
-            <li>波谷表示响度最小值</li>
+            <li>时间窗口：100ms（符合EBU R128标准）</li>
+            <li>采用A加权和RMS计算</li>
+          </ul>
+        </li>
+        <li>图表说明：
+          <ul>
+            <li>X轴：时间（秒）</li>
+            <li>Y轴：A加权声压级（dB）</li>
+            <li>曲线：反映音频响度的时间变化特性</li>
+          </ul>
+        </li>
+        <li>设备性能指标：
+          <ul>
+            <li>响应速度：曲线的上升/下降速度反映设备的瞬态响应性能</li>
+            <li>过冲控制：峰值过冲的大小反映设备的限幅性能</li>
+            <li>底噪控制：最低电平的稳定性反映设备的噪声控制能力</li>
+            <li>动态精度：曲线的平滑度反映设备的动态处理精度</li>
+          </ul>
+        </li>
+        <li>应用场景：
+          <ul>
+            <li>评估音频设备的动态性能</li>
+            <li>分析音频信号的响度一致性</li>
+            <li>识别设备的压缩和限幅特征</li>
+            <li>评估设备的噪声控制能力</li>
           </ul>
         </li>
       </ul>
     </div>
   );
+
+  // 显示帮助弹层
+  const showHelpModal = (title: string, content: React.ReactNode) => {
+    setHelpModalTitle(title);
+    setHelpModalContent(content);
+    setIsHelpModalVisible(true);
+  };
 
   return (
     <div style={{ width: '100%', maxWidth: '100%' }}>
@@ -378,19 +424,14 @@ const AudioAnalyzer = () => {
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             动态范围分析
-            <Tooltip 
-              title={dynamicsChartHelp} 
-              overlayStyle={{ maxWidth: '500px' }}
-              placement="right"
+            <Button 
+              type="text" 
+              icon={<QuestionCircleOutlined />}
+              style={{ color: '#1890ff' }}
+              onClick={() => showHelpModal('动态范围分析说明', dynamicsChartHelp)}
             >
-              <Button 
-                type="text" 
-                icon={<QuestionCircleOutlined />}
-                style={{ color: '#1890ff' }}
-              >
-                查看解读说明
-              </Button>
-            </Tooltip>
+              查看解读说明
+            </Button>
           </div>
         }
         style={{ marginTop: 20 }}
@@ -400,7 +441,8 @@ const AudioAnalyzer = () => {
             <span>
               总体动态范围: {
                 frequencyData
-                  .map(item => item.dynamics?.overall_dynamics.range.toFixed(1))
+                  .filter(item => item.dynamics?.overall_dynamics?.fast?.range)
+                  .map(item => item.dynamics.overall_dynamics.fast.range.toFixed(1))
                   .join(', ')
               }dB
             </span>
@@ -412,7 +454,7 @@ const AudioAnalyzer = () => {
             .filter(item => item.dynamics)
             .map(item => ({
               name: item.name,
-              dynamics: item.dynamics!
+              dynamics: item.dynamics
             }))} 
         />
         <div style={{ 
@@ -423,12 +465,23 @@ const AudioAnalyzer = () => {
           fontSize: '14px',
           color: '#666'
         }}>
-          <div>提示：图表分为上下两部分，上部显示频段动态范围，下部显示短时动态范围。</div>
+          <div>提示：图表上方显示各频段的动态范围，下方显示短时动态范围变化。</div>
           <div style={{ marginTop: '8px' }}>
             点击上方的"查看解读说明"按钮，了解如何解读动态范围分析图表。
           </div>
         </div>
       </Card>
+
+      <Modal
+        title={helpModalTitle}
+        open={isHelpModalVisible}
+        onCancel={() => setIsHelpModalVisible(false)}
+        footer={null}
+        width={800}
+        style={{ top: 20 }}
+      >
+        {helpModalContent}
+      </Modal>
     </div>
   );
 };
