@@ -226,6 +226,14 @@ const DynamicsChart = ({ data }: Props) => {
         ['#fadb14', '#fff566']  // 黄色系
       ];
 
+      // 创建文件名到颜色的映射
+      const fileColors = new Map(
+        data.map((item, index) => [
+          item.name, 
+          baseColors[index % baseColors.length]
+        ])
+      );
+
       // 计算每个文件的柱状图位置偏移
       const barWidth = Math.max(5, 80 / (data.length * 2)); // 每个柱子的宽度，最小5%
       const barGap = '30%'; // 同组柱子之间的间距（Fast和Slow之间）
@@ -412,8 +420,10 @@ const DynamicsChart = ({ data }: Props) => {
                 // 只处理bar类型的series
                 params.forEach((param, index) => {
                   if (param.seriesType === 'bar') {
+                    const colors = fileColors.get(param.seriesName) || ['#333', '#333'];
                     const responseType = index % 2 === 0 ? 'Fast' : 'Slow';
-                    result += `<div style="color:${param.color};padding-left:10px;">
+                    const color = index % 2 === 0 ? colors[0] : colors[1];
+                    result += `<div style="color:${color};padding-left:10px;">
                       ${param.seriesName} (${responseType})：${param.value.toFixed(1)}dB
                     </div>`;
                   }
@@ -423,8 +433,8 @@ const DynamicsChart = ({ data }: Props) => {
                 // 下方图表（短时动态范围）的tooltip
                 let result = `<div style="font-weight:bold;margin-bottom:5px;">时间：${bandName}秒</div>`;
                 params.forEach(param => {
-                  const color = param.color || '#333';
-                  result += `<div style="color:${color};padding-left:10px;">
+                  const colors = fileColors.get(param.seriesName) || ['#333', '#333'];
+                  result += `<div style="color:${colors[0]};padding-left:10px;">
                     ${param.seriesName}：${param.value.toFixed(1)}dB
                   </div>`;
                 });
