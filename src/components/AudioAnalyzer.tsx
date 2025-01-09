@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Upload, Button, Card, message, Tooltip, Modal } from 'antd';
 import { InboxOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd/es/upload/interface';
@@ -56,10 +56,26 @@ const AudioAnalyzer = () => {
   const [frequencyData, setFrequencyData] = useState<FrequencyData[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [config, setConfig] = useState<{ audio: { max_files: number; max_duration: number } }>();
   const abortControllerRef = useRef<AbortController | null>(null);
   const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
   const [helpModalTitle, setHelpModalTitle] = useState('');
   const [helpModalContent, setHelpModalContent] = useState<React.ReactNode>(null);
+
+  // 获取配置
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/config`)
+      .then(response => response.json())
+      .then(result => {
+        if (result.status === 'success') {
+          setConfig(result.data);
+        }
+      })
+      .catch(error => {
+        console.error('Failed to load config:', error);
+        message.error('加载配置失败');
+      });
+  }, []);
 
   // 比较两个数据是否相同
   const isDataEqual = (data1: FrequencyData, data2: FrequencyData): boolean => {
@@ -126,7 +142,43 @@ const AudioAnalyzer = () => {
       const result = await response.json();
       console.log('Analysis result:', result);
       
-      if (result.status !== 'success' || !result.data) {
+      if (result.status === 'error') {
+        message.error(result.message);
+        onError?.(new Error(result.message));
+        return;
+      }
+
+      if (result.status === 'partial') {
+        // 显示部分成功的信息
+        result.errors?.forEach((error: { filename: string; message: string }) => {
+          message.error(`${error.filename}: ${error.message}`);
+        });
+        
+        // 处理成功的结果
+        result.results?.forEach((item: { 
+          filename: string; 
+          data: { 
+            frequencies: number[]; 
+            magnitudes: number[]; 
+            dynamics?: FrequencyData['dynamics'] 
+          } 
+        }) => {
+          setFrequencyData(prev => {
+            const newData: FrequencyData = {
+              frequencies: item.data.frequencies,
+              magnitudes: item.data.magnitudes,
+              name: item.filename,
+              dynamics: item.data.dynamics
+            };
+            return [...prev, newData];
+          });
+          message.success(`${item.filename} 分析完成`);
+        });
+        
+        return;
+      }
+
+      if (!result.data) {
         throw new Error('分析结果格式错误');
       }
 
@@ -311,27 +363,35 @@ const AudioAnalyzer = () => {
     setIsHelpModalVisible(true);
   };
 
+  // 处理文件上传前的验证
+  const beforeUpload = (file: File, fileList: File[]) => {
+    // 检查文件数量
+    if (config && fileList.length > config.audio.max_files) {
+      message.error(`一次最多只能上传${config.audio.max_files}个文件`);
+      return false;
+    }
+
+    // 检查文件类型
+    const isAudioFile = SUPPORTED_AUDIO_TYPES.includes(file.type);
+    if (!isAudioFile) {
+      message.error('只支持上传音频文件！');
+      return false;
+    }
+
+    return true;
+  };
+
   return (
     <div style={{ width: '100%', maxWidth: '100%' }}>
       <Card title="音频文件上传" style={{ marginBottom: 20, textAlign: 'left' }}>
         <Dragger
-          accept={SUPPORTED_AUDIO_TYPES.join(',')}
           customRequest={handleUpload}
+          beforeUpload={beforeUpload}
+          multiple={true}
+          maxCount={config?.audio.max_files}
           showUploadList={false}
-          disabled={analyzing}
-          style={{ padding: '20px 0' }}
-          beforeUpload={(file) => {
-            if (!SUPPORTED_AUDIO_TYPES.includes(file.type)) {
-              message.error('请上传支持的音频文件格式');
-              return false;
-            }
-            const maxSize = 100 * 1024 * 1024; // 100MB
-            if (file.size > maxSize) {
-              message.error('文件大小不能超过100MB');
-              return false;
-            }
-            return true;
-          }}
+          accept={SUPPORTED_AUDIO_TYPES.join(',')}
+          disabled={analyzing || !config}
         >
           <p className="ant-upload-drag-icon">
             <InboxOutlined />
@@ -340,7 +400,14 @@ const AudioAnalyzer = () => {
             点击或拖拽音频文件到此区域
           </p>
           <p className="ant-upload-hint">
-            支持WAV、MP3、OGG、FLAC等音频格式，文件大小不超过100MB
+            支持WAV、MP3、OGG、FLAC等音频格式
+            {config && (
+              <>
+                <br />
+                最长时间：{config.audio.max_duration}秒，
+                最多{config.audio.max_files}个文件
+              </>
+            )}
           </p>
         </Dragger>
 
