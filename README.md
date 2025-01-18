@@ -78,15 +78,60 @@
 
 ## 安装和运行
 
-```bash
-# 安装依赖
-npm install
+### 后端服务
+1. 进入后端目录：
+   ```bash
+   cd backend
+   ```
 
-# 启动开发服务器
-npm run dev
+2. 创建虚拟环境（推荐）：
+   ```bash
+   python -m venv venv
+   
+   # Windows激活虚拟环境
+   venv\Scripts\activate
+   
+   # Linux/Mac激活虚拟环境
+   source venv/bin/activate
+   ```
 
-# 构建生产版本
-npm run build
+3. 安装依赖：
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. 启动服务：
+   ```bash
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+   服务将在 http://localhost:8000 上运行
+
+### 前端服务
+1. 安装依赖：
+   ```bash
+   npm install
+   ```
+
+2. 启动开发服务器：
+   ```bash
+   npm run dev
+   ```
+
+3. 构建生产版本：
+   ```bash
+   npm run build
+   ```
+
+## 配置说明
+
+### 后端配置（config.yaml）
+```yaml
+audio:
+  # 最长音频时间限制（秒）
+  max_duration: 3000
+  # 单次最大上传文件个数
+  max_files: 10
 ```
 
 ## 注意事项
